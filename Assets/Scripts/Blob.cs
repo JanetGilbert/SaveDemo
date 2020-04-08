@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+
 /* Blobs move back and forth between two points.
  * If blobs are targets, they turn a different color, and shrink when clicked.
  * If they shrink to nothing then they are destroyed.
@@ -149,5 +150,64 @@ public class Blob : MonoBehaviour
         scaling = true;
     }
 
+    // Copy blob state into save structure.
+    public SaveBlob CreateSaveData()
+    {
+        SaveBlob saveBlob = new SaveBlob();
 
+        saveBlob.size = size;
+        saveBlob.scaling = scaling;
+        saveBlob.scaleTo = scaleTo;
+        saveBlob.curScale = curScale;
+
+        saveBlob.start = start;
+        saveBlob.end = end;
+        saveBlob.lerpTime = lerpTime;
+
+        saveBlob.position = transform.position;
+        saveBlob.scale = transform.localScale;
+        saveBlob.rotate = transform.localRotation;
+
+        return saveBlob;
+    }
+
+    // Restore and re-initialize blob.
+    public void RestoreSaveData(SaveBlob saveBlob)
+    {
+        size = saveBlob.size;
+        scaling = saveBlob.scaling;
+        scaleTo = saveBlob.scaleTo;
+        curScale = saveBlob.curScale;
+
+        start = saveBlob.start;
+        end = saveBlob.end;
+        lerpTime = saveBlob.lerpTime;
+
+        transform.position = saveBlob.position;
+        transform.localScale = saveBlob.scale;
+        transform.localRotation = saveBlob.rotate;
+    }
+}
+
+// Save blob structure.
+// These are the variables that must be stored and retrieved to save the blob.
+// Note that the standard Vector3 and Quaternion class are not serializable, so we must copy them to a custom class.
+[System.Serializable]
+public struct SaveBlob
+{
+    // Scaling data
+    public int size;
+    public bool scaling;
+    public float scaleTo;
+    public float curScale;
+
+    // Lerping data
+    public SerializableVector3 start; 
+    public SerializableVector3 end;
+    public float lerpTime;
+
+    // Standard
+    public SerializableVector3 position;
+    public SerializableVector3 scale;
+    public SerializableQuaternion rotate;
 }
