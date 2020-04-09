@@ -53,6 +53,9 @@ public class BlobSpawner : MonoBehaviour
     public List<Blob> blobList = new List<Blob>(); // List of all blobs.
     public Blob target; // Target Blob
 
+    // List of blob data
+    public List<BlobData> blobDataList = new List<BlobData>();
+
 
     void Start()
     {
@@ -124,8 +127,21 @@ public class BlobSpawner : MonoBehaviour
 
         newBlob.transform.parent = transform;
 
-        Blob target = newBlob.GetComponent<Blob>();
-        blobList.Add(target);
+        blobList.Add(newBlob);
+        blobDataList.Add(newBlob.Data);
+
+        return newBlob;
+    }
+
+    // Recreate blob object from saved data.
+    Blob SpawnFromData(BlobData blobData)
+    {
+        Blob newBlob = Instantiate<Blob>(prefabToSpawn);
+
+        newBlob.RefreshAfterLoad(blobData);
+        newBlob.transform.parent = transform;
+
+        blobList.Add(newBlob);
 
         return newBlob;
     }
@@ -145,12 +161,12 @@ public class BlobSpawner : MonoBehaviour
         bf.Serialize(file, data); // Save main game data.
 
         // Save the list of blobs.
-        bf.Serialize(file, blobList.Count);
-
         foreach (Blob blob in blobList)
         {
-            bf.Serialize(file, blob.GetData());
+            blob.SetTransformForSave();
         }
+
+        bf.Serialize(file, blobDataList);
 
         // Store index to target blob (rather than target blob.)
         int targetIndex = blobList.FindIndex(x => x == target); 
@@ -177,15 +193,13 @@ public class BlobSpawner : MonoBehaviour
         data = (BlobSpawnerData)bf.Deserialize(file);
 
         // Load and reconstruct blob list.
-        int blobListLen = (int)bf.Deserialize(file);
+        blobDataList = (List<BlobData>)bf.Deserialize(file);
 
-        for (int i = 0; i < blobListLen; i++)
+        foreach (BlobData blobData in blobDataList)
         {
-            BlobData blobData = (BlobData)bf.Deserialize(file);
-
-            Blob newBlob = Spawn(); // Respawn blobs.
-            newBlob.RefreshAfterLoad(blobData);
+            SpawnFromData(blobData);
         }
+
 
         // Set target blob.
         int targetIndex = (int)bf.Deserialize(file);

@@ -74,8 +74,16 @@ public class Blob : MonoBehaviour
     [System.NonSerialized]
     private MeshRenderer meshRenderer;
 
-    // Savable data
-    private BlobData data = new BlobData();
+    // Savable data (accessible by other classes, but not settable)
+    private BlobData _data = new BlobData();
+
+    public BlobData Data
+    {
+        get
+        {
+            return _data;
+        }
+    }
 
     // Property with no backing variable to set material color.
     public Color BlobColor
@@ -96,10 +104,10 @@ public class Blob : MonoBehaviour
 
 
         // Set movement pattern.
-        data.Start = transform.position;
-        data.End = data.Start + (Random.rotation * Vector3.forward) * Random.Range(1.0f, 5.0f);
+        _data.Start = transform.position;
+        _data.End = _data.Start + (Random.rotation * Vector3.forward) * Random.Range(1.0f, 5.0f);
 
-        data.size = maxSizeStep;
+        _data.size = maxSizeStep;
     }
 
     void Start()
@@ -111,47 +119,47 @@ public class Blob : MonoBehaviour
     void Update()
     {
         // Scale down after target blob is clicked, up after non-target blob clicked.
-        if (data.scaling)
+        if (_data.scaling)
         {
-            if (data.curScale < data.scaleTo)
+            if (_data.curScale < _data.scaleTo)
             {
-                data.curScale += scaleSpeed * Time.deltaTime;
+                _data.curScale += scaleSpeed * Time.deltaTime;
 
-                if (data.curScale >= data.scaleTo)
+                if (_data.curScale >= _data.scaleTo)
                 {
-                    data.scaling = false;
+                    _data.scaling = false;
                 }
             }
-            else if (data.curScale > data.scaleTo)
+            else if (_data.curScale > _data.scaleTo)
             {
-                data.curScale -= scaleSpeed * Time.deltaTime;
+                _data.curScale -= scaleSpeed * Time.deltaTime;
 
-                if (data.curScale <= data.scaleTo)
+                if (_data.curScale <= _data.scaleTo)
                 {
-                    data.scaling = false;
+                    _data.scaling = false;
                 }
             }
 
-            transform.localScale = new Vector3(data.curScale, data.curScale, 1.0f);
+            transform.localScale = new Vector3(_data.curScale, _data.curScale, 1.0f);
         }
 
         // Lerp between two points.
         Vector3 newPos;
 
-        if (data.lerpTime < 1.0f)
+        if (_data.lerpTime < 1.0f)
         {
-            newPos = Vector3.Lerp(data.Start, data.End, data.lerpTime);
+            newPos = Vector3.Lerp(_data.Start, _data.End, _data.lerpTime);
         }
         else
         {
-            newPos = Vector3.Lerp(data.End, data.Start, data.lerpTime - 1.0f);
+            newPos = Vector3.Lerp(_data.End, _data.Start, _data.lerpTime - 1.0f);
         }
 
-        data.lerpTime += Time.deltaTime * moveSpeed;
+        _data.lerpTime += Time.deltaTime * moveSpeed;
 
-        if (data.lerpTime > 2.0f)
+        if (_data.lerpTime > 2.0f)
         {
-            data.lerpTime = 0.0f;
+            _data.lerpTime = 0.0f;
         }
 
         transform.position = newPos;
@@ -162,11 +170,11 @@ public class Blob : MonoBehaviour
     {
         if (spawner.IsCurrent(this)) // If blob is target, decrease the size
         {
-            data.size--;
+            _data.size--;
 
-            if (data.size <= 0)
+            if (_data.size <= 0)
             {
-                data.size = 0;
+                _data.size = 0;
 
                 // Destroy blob when it shrinks to nothing.
                 spawner.Remove(this);
@@ -175,36 +183,35 @@ public class Blob : MonoBehaviour
         }
         else // If blob is not target, increase the size
         {
-            data.size++;
+            _data.size++;
 
-            if (data.size > maxSizeStep)
+            if (_data.size > maxSizeStep)
             {
-                data.size = maxSizeStep;
+                _data.size = maxSizeStep;
             }
         }
 
         // Set scale target.
-        float scaled = 1.0f / maxSizeStep * data.size;
-        data.scaleTo = scaled;
-        data.scaling = true;
+        float scaled = 1.0f / maxSizeStep * _data.size;
+        _data.scaleTo = scaled;
+        _data.scaling = true;
     }
 
-    // Get the data needed for saving the game.
-    public BlobData GetData()
-    {
-        // Since the transform may be set from anywhere, convert it to a storable format at the last moment before saving.
-        // You could also do it every frame, but that's slightly inefficient.
-        data.serializedTransform = new SerializedTransform(transform); 
-
-        return data;
-    }
 
     // Refresh blob after loading stored data.
     public void RefreshAfterLoad(BlobData newData)
     {
-        data = newData;
+        _data = newData;
 
-        data.serializedTransform.LoadTransform(transform);
+        _data.serializedTransform.LoadTransform(transform);
+    }
+
+    // Copy the transform to the saveable object.
+    public void SetTransformForSave()
+    {
+        // Since the transform may be set from anywhere, convert it to a storable format at the last moment before saving.
+        // You could also do it every frame, but that's inefficient.
+        _data.serializedTransform = new SerializedTransform(transform);
     }
 
 }
