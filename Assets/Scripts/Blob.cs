@@ -6,6 +6,53 @@ using UnityEngine;
  * If blobs are targets, they turn a different color, and shrink when clicked.
  * If they shrink to nothing then they are destroyed.
  * If blobs are clicked when they are not targets, they grow to a maximum size.*/
+
+// The blob data that must be serialized to save the game. (non-Monobehaviour)
+[System.Serializable]
+public class BlobData
+{
+    // Scaling data
+    public int size;
+    public bool scaling = false;
+    public float scaleTo = 1.0f;
+    public float curScale = 1.0f;
+
+    // Lerping data - store as serializable Vector3, access as normal Vector3
+    private SerializableVector3 _start;
+    public Vector3 Start
+    {
+        get
+        {
+            return _start;
+        }
+        set
+        {
+            _start = value;
+        }
+    }
+
+
+    private SerializableVector3 _end;
+    public Vector3 End
+    {
+        get
+        {
+            return _end;
+        }
+        set
+        {
+            _end = value;
+        }
+    }
+
+    public float lerpTime;
+
+
+    public SerializedTransform serializedTransform; // Set this on saving.
+}
+
+
+// The main blob class. (Monobehaviour)
 public class Blob : MonoBehaviour
 {
     // Settable in editor
@@ -17,25 +64,18 @@ public class Blob : MonoBehaviour
     [Header("Movement lerp speed")]
     private float moveSpeed = 0.3f;
 
-
     [SerializeField]
     [Header("How fast the blobs scale up or down")]
     private float scaleSpeed = 1.0f;
 
     // Cached components
+    [System.NonSerialized]
     private BlobSpawner spawner;
+    [System.NonSerialized]
     private MeshRenderer meshRenderer;
 
-    // Scaling data
-    private int size;
-    private bool scaling = false;
-    private float scaleTo = 1.0f;
-    private float curScale = 1.0f;
-    
-    // Lerping data
-    private Vector3 start;
-    private Vector3 end;
-    private float lerpTime;
+    // Savable data
+    private BlobData data = new BlobData();
 
     // Property with no backing variable to set material color.
     public Color BlobColor
@@ -52,14 +92,14 @@ public class Blob : MonoBehaviour
     void Awake()
     {
         // Cache useful components.
-        meshRenderer = GetComponent<MeshRenderer>(); 
-       
+        meshRenderer = GetComponent<MeshRenderer>();
+
 
         // Set movement pattern.
-        start = transform.position;
-        end = start + (Random.rotation * Vector3.forward) * Random.Range(1.0f, 5.0f);
+        data.Start = transform.position;
+        data.End = data.Start + (Random.rotation * Vector3.forward) * Random.Range(1.0f, 5.0f);
 
-        size = maxSizeStep;
+        data.size = maxSizeStep;
     }
 
     void Start()
@@ -71,47 +111,47 @@ public class Blob : MonoBehaviour
     void Update()
     {
         // Scale down after target blob is clicked, up after non-target blob clicked.
-        if (scaling)
+        if (data.scaling)
         {
-            if (curScale < scaleTo)
+            if (data.curScale < data.scaleTo)
             {
-                curScale += scaleSpeed * Time.deltaTime;
+                data.curScale += scaleSpeed * Time.deltaTime;
 
-                if (curScale >= scaleTo)
+                if (data.curScale >= data.scaleTo)
                 {
-                    scaling = false;
+                    data.scaling = false;
                 }
             }
-            else if (curScale > scaleTo)
+            else if (data.curScale > data.scaleTo)
             {
-                curScale -= scaleSpeed * Time.deltaTime;
+                data.curScale -= scaleSpeed * Time.deltaTime;
 
-                if (curScale <= scaleTo)
+                if (data.curScale <= data.scaleTo)
                 {
-                    scaling = false;
+                    data.scaling = false;
                 }
             }
 
-            transform.localScale = new Vector3(curScale, curScale, 1.0f);
+            transform.localScale = new Vector3(data.curScale, data.curScale, 1.0f);
         }
 
         // Lerp between two points.
         Vector3 newPos;
 
-        if (lerpTime < 1.0f)
+        if (data.lerpTime < 1.0f)
         {
-            newPos = Vector3.Lerp(start, end, lerpTime);
+            newPos = Vector3.Lerp(data.Start, data.End, data.lerpTime);
         }
         else
         {
-            newPos = Vector3.Lerp(end, start, lerpTime - 1.0f);
+            newPos = Vector3.Lerp(data.End, data.Start, data.lerpTime - 1.0f);
         }
 
-        lerpTime += Time.deltaTime * moveSpeed;
+        data.lerpTime += Time.deltaTime * moveSpeed;
 
-        if (lerpTime > 2.0f)
+        if (data.lerpTime > 2.0f)
         {
-            lerpTime = 0.0f;
+            data.lerpTime = 0.0f;
         }
 
         transform.position = newPos;
@@ -122,11 +162,11 @@ public class Blob : MonoBehaviour
     {
         if (spawner.IsCurrent(this)) // If blob is target, decrease the size
         {
-            size--;
+            data.size--;
 
-            if (size <= 0)
+            if (data.size <= 0)
             {
-                size = 0;
+                data.size = 0;
 
                 // Destroy blob when it shrinks to nothing.
                 spawner.Remove(this);
@@ -135,19 +175,36 @@ public class Blob : MonoBehaviour
         }
         else // If blob is not target, increase the size
         {
-            size++;
+            data.size++;
 
-            if (size > maxSizeStep)
+            if (data.size > maxSizeStep)
             {
-                size = maxSizeStep;
+                data.size = maxSizeStep;
             }
         }
 
         // Set scale target.
-        float scaled = 1.0f / maxSizeStep * size;
-        scaleTo = scaled;
-        scaling = true;
+        float scaled = 1.0f / maxSizeStep * data.size;
+        data.scaleTo = scaled;
+        data.scaling = true;
     }
 
+    // Get the data needed for saving the game.
+    public BlobData GetData()
+    {
+        // Since the transform may be set from anywhere, convert it to a storable format at the last moment before saving.
+        // You could also do it every frame, but that's slightly inefficient.
+        data.serializedTransform = new SerializedTransform(transform); 
+
+        return data;
+    }
+
+    // Refresh blob after loading stored data.
+    public void RefreshAfterLoad(BlobData newData)
+    {
+        data = newData;
+
+        data.serializedTransform.LoadTransform(transform);
+    }
 
 }

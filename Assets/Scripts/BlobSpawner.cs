@@ -1,7 +1,25 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
 
+/* The main blob spawner and blob manager class that also serves as the game controller in this simple game.
+ * It spawns blobs at regular time periods and manages the loading and saving of the game. */
+
+
+// The spawner data that must be serialized to save the game. (non-Monobehaviour)
+[System.Serializable]
+public class BlobSpawnerData
+{
+    // Timers
+    public float spawnTimer;  // Countdown between spawns.
+    public float switchTimer; // Countdown between target blob switch.
+
+
+}
+
+// The main spawner class. (Monobehaviour)
 public class BlobSpawner : MonoBehaviour
 {
     // Settable in editor
@@ -29,23 +47,20 @@ public class BlobSpawner : MonoBehaviour
     [Header("How often the target switches between blobs")]
     private float switchTimeMax = 0.1f;
 
-    // Timers
-    private float spawnTimer;  // Countdown between spawns.
-    private float switchTimer; // Countdown between target blob switch.
+    private BlobSpawnerData data = new BlobSpawnerData();
 
     // Blobs
-    private List<Blob> blobList = new List<Blob>(); // List of all blobs.
-    private Blob target; // Target Blob
+    public List<Blob> blobList = new List<Blob>(); // List of all blobs.
+    public Blob target; // Target Blob
 
 
     void Start()
     {
-        Spawn(); // Add one blob.
-        SetActive(blobList[0]); // Set initial target.
+        SetTarget(Spawn()); // Add one blob. Set as initial target.
     }
 
     // Set the target, and set all other blobs to not be targets.
-    void SetActive(Blob newActive)
+    void SetTarget(Blob newActive)
     {
         if (target != null)
         {
@@ -66,29 +81,40 @@ public class BlobSpawner : MonoBehaviour
     void Update()
     {
         // Spawn blobs every spawnTimeMax seconds.
-        spawnTimer -= Time.deltaTime;
+        data.spawnTimer -= Time.deltaTime;
 
-        while (spawnTimer < 0.0f)
+        while (data.spawnTimer < 0.0f)
         {
-            spawnTimer += spawnTimeMax;
+            data.spawnTimer += spawnTimeMax;
 
             Spawn();
         }
 
 
         // Switch target every switchTimeMax seconds.
-        switchTimer -= Time.deltaTime;
+        data.switchTimer -= Time.deltaTime;
 
-        if (switchTimer < 0.0f)
+        if (data.switchTimer < 0.0f)
         {
-            switchTimer = switchTimeMax;
+            data.switchTimer = switchTimeMax;
 
-            SetActive(blobList[Random.Range(0, blobList.Count)]);
+            SetTarget(blobList[Random.Range(0, blobList.Count)]);
+        }
+
+        // Save/Load test
+        if (Input.GetKeyDown(KeyCode.S))
+        {
+            SaveGame();
+        }
+
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+            LoadGame();
         }
     }
 
     // Create blob and add it to the list.
-    void Spawn()
+    Blob Spawn()
     {
         float halfBorder = borderWidth / 2.0f;
 
@@ -100,6 +126,8 @@ public class BlobSpawner : MonoBehaviour
 
         Blob target = newBlob.GetComponent<Blob>();
         blobList.Add(target);
+
+        return newBlob;
     }
 
     // Remove blob from list.
@@ -107,5 +135,64 @@ public class BlobSpawner : MonoBehaviour
     {
         blobList.Remove(toRemove);
     }
+
+    // Serialize the game state
+    public void SaveGame()
+    {
+        BinaryFormatter bf = new BinaryFormatter();
+        FileStream file = File.Create(Application.persistentDataPath + "/mysave.save");
+
+        bf.Serialize(file, data); // Save main game data.
+
+        // Save the list of blobs.
+        bf.Serialize(file, blobList.Count);
+
+        foreach (Blob blob in blobList)
+        {
+            bf.Serialize(file, blob.GetData());
+        }
+
+        // Store index to target blob (rather than target blob.)
+        int targetIndex = blobList.FindIndex(x => x == target); 
+        bf.Serialize(file, targetIndex);
+
+        file.Close();
+    }
+
+
+    // Deserialize the game and reinitialize objects.
+    public void LoadGame()
+    {
+        // Destroy existing blobs.
+        foreach (Blob blob in blobList)
+        {
+            Destroy(blob.gameObject); 
+        }
+
+        blobList = new List<Blob>();
+
+        // Open file.
+        BinaryFormatter bf = new BinaryFormatter();
+        FileStream file = File.Open(Application.persistentDataPath + "/mysave.save", FileMode.Open);
+        data = (BlobSpawnerData)bf.Deserialize(file);
+
+        // Load and reconstruct blob list.
+        int blobListLen = (int)bf.Deserialize(file);
+
+        for (int i = 0; i < blobListLen; i++)
+        {
+            BlobData blobData = (BlobData)bf.Deserialize(file);
+
+            Blob newBlob = Spawn(); // Respawn blobs.
+            newBlob.RefreshAfterLoad(blobData);
+        }
+
+        // Set target blob.
+        int targetIndex = (int)bf.Deserialize(file);
+        SetTarget(blobList[targetIndex]);
+
+        file.Close();   
+    }
+
 
 }
