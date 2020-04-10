@@ -70,6 +70,14 @@ public class Blob : MonoBehaviour
 
     void Update()
     {
+        UpdateScale();
+        UpdatePosition();
+
+    }
+
+
+    private void UpdateScale()
+    {
         // Scale down after target blob is clicked, up after non-target blob clicked.
         if (scaling)
         {
@@ -95,6 +103,10 @@ public class Blob : MonoBehaviour
             transform.localScale = new Vector3(curScale, curScale, 1.0f);
         }
 
+    }
+
+    private void UpdatePosition()
+    {
         // Lerp between two points.
         Vector3 newPos;
 
@@ -117,7 +129,7 @@ public class Blob : MonoBehaviour
         transform.position = newPos;
     }
 
-    
+
     void OnMouseDown()
     {
         if (spawner.IsCurrent(this)) // If blob is target, decrease the size
@@ -149,5 +161,47 @@ public class Blob : MonoBehaviour
         scaling = true;
     }
 
+    public SaveBlob CreateSaveBlob()
+    {
+        SaveBlob saveBlob = new SaveBlob();
+
+        saveBlob.size = size;
+        saveBlob.scaling = scaling;
+        saveBlob.scaleTo = scaleTo;
+        saveBlob.curScale = curScale;
+        saveBlob.lerpTime = lerpTime;
+        saveBlob.start = start;
+        saveBlob.end = end;
+
+        return saveBlob;
+    }
+
+    public void RestoreSaveData(SaveBlob saveBlob)
+    {
+        size = saveBlob.size;
+        scaling= saveBlob.scaling;
+        scaleTo = saveBlob.scaleTo;
+        curScale = saveBlob.curScale;
+        lerpTime = saveBlob.lerpTime;
+        start = saveBlob.start;
+        end = saveBlob.end;
+
+        UpdateScale();
+        UpdatePosition();
+    }
+}
+
+
+
+[System.Serializable]
+public struct SaveBlob
+{
+    public int size;
+    public bool scaling;
+    public float scaleTo;
+    public float curScale;
+    public SerializableVector3 start;
+    public SerializableVector3 end;
+    public float lerpTime;
 
 }
