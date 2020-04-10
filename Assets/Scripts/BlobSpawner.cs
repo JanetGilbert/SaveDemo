@@ -41,11 +41,11 @@ public class BlobSpawner : MonoBehaviour
     void Start()
     {
         Spawn(); // Add one blob.
-        SetActive(blobList[0]); // Set initial target.
+        SetTarget(blobList[0]); // Set initial target.
     }
 
     // Set the target, and set all other blobs to not be targets.
-    void SetActive(Blob newActive)
+    void SetTarget(Blob newActive)
     {
         if (target != null)
         {
@@ -83,7 +83,7 @@ public class BlobSpawner : MonoBehaviour
         {
             switchTimer = switchTimeMax;
 
-            SetActive(blobList[Random.Range(0, blobList.Count)]);
+            SetTarget(blobList[Random.Range(0, blobList.Count)]);
         }
     }
 
