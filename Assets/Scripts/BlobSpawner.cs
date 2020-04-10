@@ -3,13 +3,20 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
+using System;
+using System.Linq;
+
+// Shortcuts
+using Random = UnityEngine.Random;
+using BlobKey = System.Collections.Generic.KeyValuePair<System.Guid, Blob>;
+
 
 /* The main blob spawner and blob manager class that also serves as the game controller in this simple game.
  * It spawns blobs at regular time periods and manages the loading and saving of the game. */
 
 
 // The spawner data that must be serialized to save the game. (non-Monobehaviour)
-[System.Serializable]
+[Serializable]
 public class BlobSpawnerData
 {
     // Timers
@@ -50,34 +57,34 @@ public class BlobSpawner : MonoBehaviour
     private BlobSpawnerData data = new BlobSpawnerData();
 
     // Blobs
-    public List<Blob> blobList = new List<Blob>(); // List of all blobs.
-    public Blob target; // Target Blob
+    private Dictionary<Guid, Blob> blobDict = new Dictionary<Guid, Blob>(); // List of all blobs.
+    private Guid targetGuid; // Id of target Blob
 
     // List of blob data
-    public List<BlobData> blobDataList = new List<BlobData>();
+    private List<BlobData> blobDataList = new List<BlobData>();
 
 
     void Start()
     {
-        SetTarget(Spawn()); // Add one blob. Set as initial target.
+        // Add one blob. Set as initial target.
+
+        Blob newBlob = Spawn();
+        targetGuid = newBlob.Data.guid;
+        blobDict[targetGuid].BlobColor = activeColor;
     }
 
     // Set the target, and set all other blobs to not be targets.
     void SetTarget(Blob newActive)
     {
-        if (target != null)
-        {
-            target.BlobColor = inActiveColor;
-        }
-
-        target = newActive;
-        target.BlobColor = activeColor;
+        blobDict[targetGuid].BlobColor = inActiveColor;
+        targetGuid = newActive.Data.guid;
+        blobDict[targetGuid].BlobColor = activeColor;
     }
 
     // Is this blob the current target?
     public bool IsCurrent(Blob toCheck)
     {
-        return toCheck == target;
+        return toCheck.Data.guid == targetGuid;
     }
 
     
@@ -94,14 +101,15 @@ public class BlobSpawner : MonoBehaviour
         }
 
 
-        // Switch target every switchTimeMax seconds.
+        // Switch target randomly every switchTimeMax seconds.
         data.switchTimer -= Time.deltaTime;
 
         if (data.switchTimer < 0.0f)
         {
             data.switchTimer = switchTimeMax;
 
-            SetTarget(blobList[Random.Range(0, blobList.Count)]);
+            BlobKey randomBlob = blobDict.ElementAt(Random.Range(0, blobDict.Count));
+            SetTarget(randomBlob.Value);
         }
 
         // Save/Load test
@@ -127,7 +135,7 @@ public class BlobSpawner : MonoBehaviour
 
         newBlob.transform.parent = transform;
 
-        blobList.Add(newBlob);
+        blobDict.Add(newBlob.Data.guid, newBlob);
         blobDataList.Add(newBlob.Data);
 
         return newBlob;
@@ -141,7 +149,7 @@ public class BlobSpawner : MonoBehaviour
         newBlob.RefreshAfterLoad(blobData);
         newBlob.transform.parent = transform;
 
-        blobList.Add(newBlob);
+        blobDict.Add(newBlob.Data.guid, newBlob);
 
         return newBlob;
     }
@@ -149,7 +157,8 @@ public class BlobSpawner : MonoBehaviour
     // Remove blob from list.
     public void Remove(Blob toRemove)
     {
-        blobList.Remove(toRemove);
+        blobDict.Remove(toRemove.Data.guid);
+        blobDataList.Remove(toRemove.Data);
     }
 
     // Serialize the game state
@@ -161,16 +170,14 @@ public class BlobSpawner : MonoBehaviour
         bf.Serialize(file, data); // Save main game data.
 
         // Save the list of blobs.
-        foreach (Blob blob in blobList)
+        foreach (BlobKey blobPair in blobDict)
         {
-            blob.SetTransformForSave();
+            blobPair.Value.SetTransformForSave();
         }
 
         bf.Serialize(file, blobDataList);
 
-        // Store index to target blob (rather than target blob.)
-        int targetIndex = blobList.FindIndex(x => x == target); 
-        bf.Serialize(file, targetIndex);
+        bf.Serialize(file, targetGuid);
 
         file.Close();
     }
@@ -180,12 +187,12 @@ public class BlobSpawner : MonoBehaviour
     public void LoadGame()
     {
         // Destroy existing blobs.
-        foreach (Blob blob in blobList)
+        foreach (BlobKey blob in blobDict)
         {
-            Destroy(blob.gameObject); 
+            Destroy(blob.Value.gameObject); 
         }
 
-        blobList = new List<Blob>();
+        blobDict = new Dictionary<Guid, Blob>();
 
         // Open file.
         BinaryFormatter bf = new BinaryFormatter();
@@ -200,10 +207,9 @@ public class BlobSpawner : MonoBehaviour
             SpawnFromData(blobData);
         }
 
-
         // Set target blob.
-        int targetIndex = (int)bf.Deserialize(file);
-        SetTarget(blobList[targetIndex]);
+        targetGuid = (Guid)bf.Deserialize(file);
+        SetTarget(blobDict[targetGuid]);
 
         file.Close();   
     }

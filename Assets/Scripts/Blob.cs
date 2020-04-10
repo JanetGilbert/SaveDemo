@@ -1,6 +1,8 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 /* Blobs move back and forth between two points.
  * If blobs are targets, they turn a different color, and shrink when clicked.
@@ -47,7 +49,8 @@ public class BlobData
 
     public float lerpTime;
 
-
+    // Other
+    public Guid guid;
     public SerializedTransform serializedTransform; // Set this on saving.
 }
 
@@ -108,6 +111,8 @@ public class Blob : MonoBehaviour
         _data.End = _data.Start + (Random.rotation * Vector3.forward) * Random.Range(1.0f, 5.0f);
 
         _data.size = maxSizeStep;
+
+        _data.guid = Guid.NewGuid();
     }
 
     void Start()
