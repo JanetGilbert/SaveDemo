@@ -1,5 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
 
 public class BlobSpawner : MonoBehaviour
@@ -30,12 +32,12 @@ public class BlobSpawner : MonoBehaviour
     private float switchTimeMax = 0.1f;
 
     // Timers
-    private float spawnTimer;  // Countdown between spawns.
-    private float switchTimer; // Countdown between target blob switch.
+    private float spawnTimer;  // Countdown between spawns. //s 
+    private float switchTimer; // Countdown between target blob switch. //s
 
     // Blobs
-    private List<Blob> blobList = new List<Blob>(); // List of all blobs.
-    private Blob target; // Target Blob
+    private List<Blob> blobList = new List<Blob>(); // List of all blobs. //s
+    private Blob target; // Target Blob //s
 
 
     void Start()
@@ -85,10 +87,21 @@ public class BlobSpawner : MonoBehaviour
 
             SetTarget(blobList[Random.Range(0, blobList.Count)]);
         }
+
+        // Save/Load test
+        if (Input.GetKeyDown(KeyCode.S))
+        {
+            SaveGame();
+        }
+
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+            LoadGame();
+        }
     }
 
     // Create blob and add it to the list.
-    void Spawn()
+    Blob Spawn()
     {
         float halfBorder = borderWidth / 2.0f;
 
@@ -100,6 +113,8 @@ public class BlobSpawner : MonoBehaviour
 
         Blob target = newBlob.GetComponent<Blob>();
         blobList.Add(target);
+
+        return newBlob;
     }
 
     // Remove blob from list.
@@ -108,4 +123,93 @@ public class BlobSpawner : MonoBehaviour
         blobList.Remove(toRemove);
     }
 
+
+    /*
+         // Timers
+    private float spawnTimer;  // Countdown between spawns. //s 
+    private float switchTimer; // Countdown between target blob switch. //s
+
+    // Blobs
+    private List<Blob> blobList = new List<Blob>(); // List of all blobs. //s
+    private Blob target; // Target Blob //s
+    */
+
+
+    [System.Serializable]
+    public struct SaveSpawner
+    {
+        public float spawnTimer;
+        public float switchTimer;
+        public List<SaveBlob> blobList;
+        public int targetIndex;
+
+    }
+
+    public void SaveGame()
+    {
+        SaveSpawner save = CreateSaveData();
+
+
+        BinaryFormatter bf = new BinaryFormatter();
+        FileStream file = File.Create(Application.persistentDataPath + "/mysave.save");
+        bf.Serialize(file, save);
+
+        file.Close();
+
+    }
+
+    public void LoadGame()
+    {
+        BinaryFormatter bf = new BinaryFormatter();
+
+        FileStream file = File.Open(Application.persistentDataPath + "/mysave.save", FileMode.Open);
+
+        SaveSpawner save = (SaveSpawner)bf.Deserialize(file);
+
+        file.Close();
+
+        RestoreSaveData(save);
+    }
+
+
+    public SaveSpawner CreateSaveData()
+    {
+        SaveSpawner saveSpawner = new SaveSpawner();
+
+        saveSpawner.spawnTimer = spawnTimer;
+        saveSpawner.switchTimer = switchTimer;
+
+        saveSpawner.blobList = new List<SaveBlob>();
+
+        for (int i = 0; i < blobList.Count; i++)
+        {
+            saveSpawner.blobList.Add(blobList[i].CreateSaveBlob());
+        }
+
+        saveSpawner.targetIndex = blobList.FindIndex(x => x == target);
+
+
+        return saveSpawner;
+    }
+
+    // Restore and re-initialize game.
+    public void RestoreSaveData(SaveSpawner save)
+    {
+        spawnTimer = save.spawnTimer;
+        switchTimer = save.switchTimer;
+
+        foreach (Blob blob in blobList)
+        {
+            Destroy(blob.gameObject); // Destroy existing blobs.
+        }
+        blobList = new List<Blob>();
+
+        foreach (SaveBlob saveBlob in save.blobList)
+        {
+            Blob newBlob = Spawn(); // Respawn blobs.
+            newBlob.RestoreSaveData(saveBlob);
+        }
+
+        SetTarget(blobList[save.targetIndex]); // Set target via index.
+    }
 }

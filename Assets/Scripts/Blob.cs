@@ -2,6 +2,28 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[System.Serializable]
+public struct SaveBlob
+{
+    // Scaling data
+    public int size;
+    public bool scaling;
+    public float scaleTo;
+    public float curScale;
+
+    // Lerping data
+    public SerializableVector3 start;
+    public SerializableVector3 end;
+    public float lerpTime;
+
+    // Transform
+    public SerializableVector3 position;
+    public SerializableVector3 scale;
+    public SerializableQuaternion rotation;
+}
+
+
+
 /* Blobs move back and forth between two points.
  * If blobs are targets, they turn a different color, and shrink when clicked.
  * If they shrink to nothing then they are destroyed.
@@ -27,15 +49,15 @@ public class Blob : MonoBehaviour
     private MeshRenderer meshRenderer;
 
     // Scaling data
-    private int size;
-    private bool scaling = false;
-    private float scaleTo = 1.0f;
-    private float curScale = 1.0f;
-    
+    private int size; //s
+    private bool scaling = false; //s
+    private float scaleTo = 1.0f; //s
+    private float curScale = 1.0f; //s
+
     // Lerping data
-    private Vector3 start;
-    private Vector3 end;
-    private float lerpTime;
+    private Vector3 start; //s
+    private Vector3 end; //s
+    private float lerpTime; //s
 
     // Property with no backing variable to set material color.
     public Color BlobColor
@@ -149,5 +171,57 @@ public class Blob : MonoBehaviour
         scaling = true;
     }
 
+
+    /*private int size; //s
+    private bool scaling = false; //s
+    private float scaleTo = 1.0f; //s
+    private float curScale = 1.0f; //s
+
+    // Lerping data
+    private Vector3 start; //s
+    private Vector3 end; //s
+    private float lerpTime; //s
+
+    */
+
+   
+    public SaveBlob CreateSaveBlob()
+    {
+        SaveBlob saveBlob = new SaveBlob();
+
+        saveBlob.size = size;
+        saveBlob.scaling = scaling;
+        saveBlob.scaleTo = scaleTo;
+        saveBlob.curScale = curScale;
+
+        saveBlob.start = start;
+        saveBlob.end = end;
+        saveBlob.lerpTime = lerpTime;
+
+        saveBlob.position = transform.position;
+        saveBlob.scale = transform.localScale;
+        saveBlob.rotation = transform.localRotation;
+
+
+        return saveBlob;
+    }
+
+
+    // Restore and re-initialize blob.
+    public void RestoreSaveData(SaveBlob saveBlob)
+    {
+        size = saveBlob.size;
+        scaling = saveBlob.scaling;
+        scaleTo = saveBlob.scaleTo;
+        curScale = saveBlob.curScale;
+
+        start = saveBlob.start;
+        end = saveBlob.end;
+        lerpTime = saveBlob.lerpTime;
+
+        transform.position = saveBlob.position;
+        transform.localScale = saveBlob.scale;
+        transform.localRotation = saveBlob.rotation;
+    }
 
 }
